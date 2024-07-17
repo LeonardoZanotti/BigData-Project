@@ -18,6 +18,9 @@ O estudo de caso envolve a análise de dados de vagas de emprego postadas no Lin
 
 ### Baixe e explore o [dataset do Kaggle LinkedIn Job Postings](https://www.kaggle.com/datasets/arshkon/linkedin-job-postings).
 
+É necessário baixar os seguintes arquivos que estão no link acima:
+![datasets](datasets.png)
+
 -   Crie scripts para importar os dados para PostgreSQL e Cassandra.
 -   Estruture as tabelas em PostgreSQL e os keyspaces e tabelas em Cassandra conforme a natureza dos dados.
 
