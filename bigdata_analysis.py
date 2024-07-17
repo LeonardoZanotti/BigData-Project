@@ -72,7 +72,7 @@ queries = {
 
 # Executar e medir o tempo das consultas no PostgreSQL
 postgres_results = {}
-for key, query in queries.items():
+for key, query in queries.items():it
     result, exec_time = postgres_query(query)
     postgres_results[key] = {"result": result, "time": exec_time}
 
