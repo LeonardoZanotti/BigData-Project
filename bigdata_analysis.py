@@ -5,7 +5,7 @@ from cassandra.cluster import Cluster
 import time
 
 # Configurações de conexão
-postgres_conn_str = 'postgresql+psycopg2://username:password@localhost/dbname'
+postgres_conn_str = 'postgresql+psycopg2://postgres:postgres@localhost/bigdatabd3'
 cassandra_cluster = Cluster(['127.0.0.1'])
 keyspace = 'linkedin_job_postings'
 

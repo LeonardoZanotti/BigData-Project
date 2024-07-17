@@ -93,6 +93,22 @@ O estudo de caso envolve a análise de dados de vagas de emprego postadas no Lin
 
 ## Preparação do Ambiente:
 
+### PostgreSQL setup
+
+```sh
+# Install PostgreSQL
+sudo apt install postgresql postgresql-contrib
+
+# Connect into PostgreSQL
+psql -h localhost -p 5432 -U postgres
+
+# Create database
+CREATE DATABASE bigdatabd3;
+
+# List databases
+\l
+```
+
 ### Cassandra setup
 
 ```sh
