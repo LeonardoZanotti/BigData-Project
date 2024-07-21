@@ -18,12 +18,37 @@ O estudo de caso envolve a análise de dados de vagas de emprego postadas no Lin
 
 ### Baixe e explore o [dataset do Kaggle LinkedIn Job Postings](https://www.kaggle.com/datasets/arshkon/linkedin-job-postings).
 
-É necessário baixar os seguintes arquivos que estão no link acima:
+É necessário baixar o arquivo `job_postings.csv` através do link acima. Este dataset contém os seguintes campos:
 
-![datasets](datasets/datasets.png)
+-   `job_id`: The job ID as defined by LinkedIn (https://www.linkedin.com/jobs/view/ job_id )
+-   `company_id`: Identifier for the company associated with the job posting (maps to companies.csv)
+-   `title`: Job title.
+-   `description`: Job description.
+-   `max_salary`: Maximum salary
+-   `med_salary`: Median salary
+-   `min_salary`: Minimum salary
+-   `pay_period`: Pay period for salary (Hourly, Monthly, Yearly)
+-   `formatted_work_type`: Type of work (Fulltime, Parttime, Contract)
+-   `location`: Job location
+-   `applies`: Number of applications that have been submitted
+-   `original_listed_time`: Original time the job was listed
+-   `remote_allowed`: Whether job permits remote work
+-   `views`: Number of times the job posting has been viewed
+-   `job_posting_url`: URL to the job posting on a platform
+-   `application_url`: URL where applications can be submitted
+-   `application_type`: Type of application process (offsite, complex/simple onsite)
+-   `expiry`: Expiration date or time for the job listing
+-   `closed_time`: Time to close job listing
+-   `formatted_experience_level`: Job experience level (entry, associate, executive, etc)
+-   `skills_desc`: Description detailing required skills for job
+-   `listed_time`: Time when the job was listed
+-   `posting_domain`: Domain of the website with application
+-   `sponsored`: Whether the job listing is sponsored or promoted.
+-   `work_type`: Type of work associated with the job
+-   `currency`: Currency in which the salary is provided.
+-   `compensation_type`: Type of compensation for the job.
 
--   Crie scripts para importar os dados para PostgreSQL e Cassandra.
--   Estruture as tabelas em PostgreSQL e os keyspaces e tabelas em Cassandra conforme a natureza dos dados.
+Com isso, usaremos scripts para importar os dados para PostgreSQL e Cassandra e estruturar as tabelas em PostgreSQL e os keyspaces e tabelas em Cassandra conforme a natureza dos dados.
 
 ### Armazenamento de Dados:
 
@@ -107,7 +132,7 @@ sudo apt install postgresql postgresql-contrib
 psql -h localhost -p 5432 -U postgres
 
 # Create database
-CREATE DATABASE bigdatabd3;
+CREATE DATABASE linkedin_job_postings;
 
 # List databases
 \l
@@ -202,7 +227,7 @@ python3.10 get-pip.py
 python3.10 -m pip --version
 
 # Install required libraries
-python3.10 -m pip install pandas sqlalchemy psycopg2-binary cassandra-driver
+python3.10 -m pip install pandas sqlalchemy cassandra-driver
 
 # Run the analysis
 python3.10 bigdata_analysis.py
