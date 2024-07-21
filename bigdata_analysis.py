@@ -33,7 +33,7 @@ def measure_time(func):
 
 ###################################### POSTGRESQL ##################################################
 # Conexão com PostgreSQL
-postgres_conn_str = 'postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}'
+postgres_conn_str = "postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
 postgresql_engine = sqlalchemy.create_engine(postgres_conn_str)
 postgres_conn = postgresql_engine.connect()
 
@@ -95,7 +95,7 @@ cassandra_session.execute("""
 
 # Importar dados para Cassandra
 for _, row in job_postings.iterrows():
-    session.execute("""
+    cassandra_session.execute("""
         INSERT INTO job_postings (job_id, company_id, title, description, max_salary, med_salary, min_salary,
                                   pay_period, formatted_work_type, location, applies, original_listed_time,
                                   remote_allowed, views, job_posting_url, application_url, application_type,
@@ -152,24 +152,27 @@ queries = [
 ###################################### EXECUÇÃO ##################################################
 
 # Executar e medir o tempo das consultas no PostgreSQL e no Cassandra
-postgres_results = {}
-cassandra_results = {}
+results = []
 
 for key, query in queries.items():
     psql_result, psql_exec_time = postgres_query(sqlalchemy.text(query["sql"]))
     cassandra_result, cassandra_exec_time = cassandra_query(
         SimpleStatement(query["cql"]))
 
-    postgres_results[key] = {"result": psql_result, "time": psql_exec_time}
+    results.append({
+        "description": query["description"],
+        "psql_result": psql_result,
+        "psql_time": psql_exec_time,
+        "cassandra_result": cassandra_result,
+        "cassandra_time": cassandra_exec_time
+    })
 
-    cassandra_results[key] = {
-        "result": cassandra_result, "time": cassandra_exec_time}
 
 # Exibir os resultados
-for key in queries.keys():
-    print(f"Consulta: {queries["description"]}")
-    print(f"PostgreSQL: Tempo = {postgres_results[key]['time']:.4f}s")
-    print(f"Cassandra: Tempo = {cassandra_results[key]['time']:.4f}s")
+for result in results:
+    print(f"Consulta: {result['description']}")
+    print(f"PostgreSQL: Tempo = {result['psql_time']:.4f}s")
+    print(f"Cassandra: Tempo = {result['cassandra_time']:.4f}s")
     print("\n")
 
 # Fechar conexões
