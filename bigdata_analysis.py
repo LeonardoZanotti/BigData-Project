@@ -3,7 +3,6 @@ import sqlalchemy
 from cassandra.cluster import Cluster
 from cassandra.query import SimpleStatement
 import time
-
 # https://chatgpt.com/c/04611492-c55e-4a62-9c4b-dab35544b753
 # https://www.overleaf.com/project/669834656ef23d0f88fe6c4b
 # https://github.com/LeonardoZanotti/BigData-Project
@@ -16,6 +15,10 @@ table = "job_postings"
 psql_usr = "postgres"
 psql_psw = "postgres"
 psql_host = "localhost"
+
+# IP do container Cassandra
+# Substitua pelo IP real do container
+cassandra_container_ip = "172.20.0.2"
 
 ########################################################################################
 
@@ -50,62 +53,65 @@ print("Dados importados para o PostgreSQL com sucesso.")
 
 # Configurações do Cassandra
 keyspace = database
-cassandra_cluster = Cluster(['172.20.0.2'])
+cassandra_cluster = Cluster([cassandra_container_ip])
 cassandra_session = cassandra_cluster.connect()
 
 # Criar keyspace e tabela
-cassandra_session.execute(f"""
-    DROP KEYSPACE {keyspace};
-    CREATE KEYSPACE IF NOT EXISTS {keyspace}
-    WITH REPLICATION = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }}
-""")
-
-cassandra_session.set_keyspace(keyspace)
-
-cassandra_session.execute(f"""
-    CREATE TABLE IF NOT EXISTS {table} (
-        job_id text PRIMARY KEY,
-        company_id text,
-        title text,
-        description text,
-        max_salary float,
-        med_salary float,
-        min_salary float,
-        pay_period text,
-        formatted_work_type text,
-        location text,
-        applies int,
-        original_listed_time text,
-        remote_allowed boolean,
-        views int,
-        job_posting_url text,
-        application_url text,
-        application_type text,
-        expiry text,
-        closed_time text,
-        formatted_experience_level text,
-        skills_desc text,
-        listed_time text,
-        posting_domain text,
-        sponsored boolean,
-        work_type text,
-        currency text,
-        compensation_type text
-    )
-""")
+try:
+    cassandra_session.execute(f"""
+        CREATE KEYSPACE IF NOT EXISTS {keyspace}
+        WITH REPLICATION = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }}
+    """)
+    cassandra_session.set_keyspace(keyspace)
+    cassandra_session.execute(f"""
+        CREATE TABLE IF NOT EXISTS {table} (
+            job_id text PRIMARY KEY,
+            company_id text,
+            title text,
+            description text,
+            max_salary float,
+            med_salary float,
+            min_salary float,
+            pay_period text,
+            formatted_work_type text,
+            location text,
+            applies int,
+            original_listed_time text,
+            remote_allowed boolean,
+            views int,
+            job_posting_url text,
+            application_url text,
+            application_type text,
+            expiry text,
+            closed_time text,
+            formatted_experience_level text,
+            skills_desc text,
+            listed_time text,
+            posting_domain text,
+            sponsored boolean,
+            work_type text,
+            currency text,
+            compensation_type text
+        )
+    """)
+    print("Keyspace e tabela criados com sucesso no Cassandra.")
+except Exception as e:
+    print(f"Erro ao criar keyspace ou tabela no Cassandra: {e}")
 
 # Importar dados para Cassandra
-for _, row in job_postings.iterrows():
-    cassandra_session.execute(f"""
-        INSERT INTO {table} (job_id, company_id, title, description, max_salary, med_salary, min_salary,
-                             pay_period, formatted_work_type, location, applies, original_listed_time,
-                             remote_allowed, views, job_posting_url, application_url, application_type,
-                             expiry, closed_time, formatted_experience_level, skills_desc, listed_time,
-                             posting_domain, sponsored, work_type, currency, compensation_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, row.tolist())
-
-print("Dados importados para o Cassandra com sucesso.")
+try:
+    for _, row in job_postings.iterrows():
+        cassandra_session.execute(f"""
+            INSERT INTO {table} (job_id, company_id, title, description, max_salary, med_salary, min_salary,
+                                 pay_period, formatted_work_type, location, applies, original_listed_time,
+                                 remote_allowed, views, job_posting_url, application_url, application_type,
+                                 expiry, closed_time, formatted_experience_level, skills_desc, listed_time,
+                                 posting_domain, sponsored, work_type, currency, compensation_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, tuple(row))
+    print("Dados importados para o Cassandra com sucesso.")
+except Exception as e:
+    print(f"Erro ao importar dados para o Cassandra: {e}")
 
 ###################################### FUNÇÕES ##################################################
 
@@ -114,12 +120,20 @@ print("Dados importados para o Cassandra com sucesso.")
 
 @measure_time
 def postgres_query(query):
-    return postgres_conn.execute(query).fetchall()
+    try:
+        return postgres_conn.execute(query).fetchall()
+    except Exception as e:
+        print(f"Erro ao executar a consulta no PostgreSQL: {e}")
+        return [], 0
 
 
 @measure_time
 def cassandra_query(query):
-    return cassandra_session.execute(SimpleStatement(query)).all()
+    try:
+        return cassandra_session.execute(SimpleStatement(query)).all()
+    except Exception as e:
+        print(f"Erro ao executar a consulta no Cassandra: {e}")
+        return [], 0
 
 ###################################### QUERIES ##################################################
 
