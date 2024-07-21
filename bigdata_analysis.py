@@ -126,15 +126,22 @@ try:
         )
     """)
 
-    print(Fore.GREEN + "Keyspace e tabela criados com sucesso no Cassandra.")
+    # Create indexes for optimized queries
+    cassandra_session.execute(
+        f"CREATE INDEX IF NOT EXISTS idx_formatted_work_type ON {table} (formatted_work_type)")
+    cassandra_session.execute(
+        f"CREATE INDEX IF NOT EXISTS idx_title ON {table} (title)")
+
+    print(Fore.GREEN + "Keyspace, tabela e índices criados com sucesso no Cassandra.")
 except Exception as e:
-    print(Fore.RED + f"Erro ao criar keyspace ou tabela no Cassandra: {e}")
+    print(
+        Fore.RED + f"Erro ao criar keyspace, tabela ou índices no Cassandra: {e}")
 
 # Importar dados para Cassandra
 try:
     # Prepare the CQL statement
-    insert_statement = """
-        INSERT INTO job_postings (
+    insert_statement = f"""
+        INSERT INTO {table} (
             job_id,
             company_name,
             company_id,
@@ -247,7 +254,11 @@ except Exception as e:
 @measure_time
 def postgres_query(query):
     try:
-        return postgres_conn.execute(query).fetchall()
+        result = postgres_conn.execute(query)
+        if str(query).strip().upper().startswith("UPDATE"):
+            postgres_conn.commit()
+            return [], 0  # No rows to return for UPDATE queries
+        return result.fetchall()
     except Exception as e:
         print(Fore.RED + f"Erro ao executar a consulta no PostgreSQL: {e}")
         return [], 0
@@ -285,9 +296,9 @@ queries = [
         "cql": "SELECT * FROM job_postings WHERE title LIKE '%Engineer%' ALLOW FILTERING"
     },
     {
-        "description": "Atualizar salário mínimo de 'Developer' para 4000",
-        "sql": "UPDATE job_postings SET min_salary = 4000 WHERE title ILIKE '%Developer%'",
-        "cql": "UPDATE job_postings SET min_salary = 4000 WHERE title LIKE '%Developer%'"
+        "description": "Atualizar o salário mínimo de todas as vagas para 4000",
+        "sql": "UPDATE job_postings SET min_salary = 4000",
+        "cql": "UPDATE job_postings SET min_salary = 4000"
     }
 ]
 
