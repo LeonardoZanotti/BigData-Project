@@ -33,12 +33,12 @@ def measure_time(func):
 
 ###################################### POSTGRESQL ##################################################
 # Conexão com PostgreSQL
-postgres_conn_str = "postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
+postgres_conn_str = f"postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
 postgresql_engine = sqlalchemy.create_engine(postgres_conn_str)
 postgres_conn = postgresql_engine.connect()
 
 # Ler o arquivo CSV
-# Lendo apenas as primeiras 1000 linhas para testes
+# Lendo apenas as primeiras 100 linhas para testes
 job_postings = pd.read_csv('datasets/postings.csv', nrows=100)
 
 # Importar dados para PostgreSQL
@@ -50,18 +50,19 @@ print("Dados importados para o PostgreSQL com sucesso.")
 
 # Configurações do Cassandra
 keyspace = database
-cassandra_cluster = Cluster(['127.0.0.1'])
+cassandra_cluster = Cluster(['172.20.0.2'])
 cassandra_session = cassandra_cluster.connect()
 
 # Criar keyspace e tabela
-cassandra_session.execute("""
+cassandra_session.execute(f"""
+    DROP KEYSPACE {keyspace};
     CREATE KEYSPACE IF NOT EXISTS {keyspace}
-    WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }
+    WITH REPLICATION = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }}
 """)
 
 cassandra_session.set_keyspace(keyspace)
 
-cassandra_session.execute("""
+cassandra_session.execute(f"""
     CREATE TABLE IF NOT EXISTS {table} (
         job_id text PRIMARY KEY,
         company_id text,
@@ -95,21 +96,22 @@ cassandra_session.execute("""
 
 # Importar dados para Cassandra
 for _, row in job_postings.iterrows():
-    cassandra_session.execute("""
-        INSERT INTO job_postings (job_id, company_id, title, description, max_salary, med_salary, min_salary,
-                                  pay_period, formatted_work_type, location, applies, original_listed_time,
-                                  remote_allowed, views, job_posting_url, application_url, application_type,
-                                  expiry, closed_time, formatted_experience_level, skills_desc, listed_time,
-                                  posting_domain, sponsored, work_type, currency, compensation_type)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """, tuple(row))
+    cassandra_session.execute(f"""
+        INSERT INTO {table} (job_id, company_id, title, description, max_salary, med_salary, min_salary,
+                             pay_period, formatted_work_type, location, applies, original_listed_time,
+                             remote_allowed, views, job_posting_url, application_url, application_type,
+                             expiry, closed_time, formatted_experience_level, skills_desc, listed_time,
+                             posting_domain, sponsored, work_type, currency, compensation_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, row.tolist())
 
 print("Dados importados para o Cassandra com sucesso.")
-
 
 ###################################### FUNÇÕES ##################################################
 
 # Funções para realizar as consultas e medir o tempo
+
+
 @measure_time
 def postgres_query(query):
     return postgres_conn.execute(query).fetchall()
@@ -117,12 +119,12 @@ def postgres_query(query):
 
 @measure_time
 def cassandra_query(query):
-    return cassandra_session.execute(query).all()
+    return cassandra_session.execute(SimpleStatement(query)).all()
 
 ###################################### QUERIES ##################################################
 
 
-# PostgreSQL
+# Definir queries
 queries = [
     {
         "description": "Salário máximo, mínimo e médio por tipo de trabalho",
@@ -154,10 +156,9 @@ queries = [
 # Executar e medir o tempo das consultas no PostgreSQL e no Cassandra
 results = []
 
-for key, query in queries.items():
+for query in queries:
     psql_result, psql_exec_time = postgres_query(sqlalchemy.text(query["sql"]))
-    cassandra_result, cassandra_exec_time = cassandra_query(
-        SimpleStatement(query["cql"]))
+    cassandra_result, cassandra_exec_time = cassandra_query(query["cql"])
 
     results.append({
         "description": query["description"],
@@ -167,13 +168,13 @@ for key, query in queries.items():
         "cassandra_time": cassandra_exec_time
     })
 
-
 # Exibir os resultados
 for result in results:
     print(f"Consulta: {result['description']}")
     print(f"PostgreSQL: Tempo = {result['psql_time']:.4f}s")
     print(f"Cassandra: Tempo = {result['cassandra_time']:.4f}s")
-    print("\n")
+    print(f"Resultados PostgreSQL: {result['psql_result']}")
+    print(f"Resultados Cassandra: {result['cassandra_result']}\n")
 
 # Fechar conexões
 postgres_conn.close()
