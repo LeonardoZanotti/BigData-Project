@@ -3,11 +3,16 @@ import sqlalchemy
 from cassandra.cluster import Cluster
 from cassandra.query import SimpleStatement
 import time
+from colorama import Fore, Style, init
+
 # https://chatgpt.com/c/04611492-c55e-4a62-9c4b-dab35544b753
 # https://www.overleaf.com/project/669834656ef23d0f88fe6c4b
 # https://github.com/LeonardoZanotti/BigData-Project
 # https://www.kaggle.com/datasets/arshkon/linkedin-job-postings
 # https://www.dropbox.com/scl/fo/c3i0wbk636qltrkjqfhz7/AH-g4P2JjSSxbJnVqvWxa-g/ds340_aX2_ProjetoBigData.pdf?rlkey=tvjexe3zoryv98385ppy23fj0&e=2&dl=0
+
+# Inicializar colorama
+init(autoreset=True)
 
 # Configurações de conexão
 database = "linkedin_job_postings"
@@ -47,7 +52,7 @@ job_postings = pd.read_csv('datasets/postings.csv', nrows=100)
 # Importar dados para PostgreSQL
 job_postings.to_sql(table, postgresql_engine, if_exists='replace', index=False)
 
-print("Dados importados para o PostgreSQL com sucesso.")
+print(Fore.GREEN + "Dados importados para o PostgreSQL com sucesso.")
 
 ###################################### CASSANDRA ##################################################
 
@@ -94,9 +99,9 @@ try:
             compensation_type text
         )
     """)
-    print("Keyspace e tabela criados com sucesso no Cassandra.")
+    print(Fore.GREEN + "Keyspace e tabela criados com sucesso no Cassandra.")
 except Exception as e:
-    print(f"Erro ao criar keyspace ou tabela no Cassandra: {e}")
+    print(Fore.RED + f"Erro ao criar keyspace ou tabela no Cassandra: {e}")
 
 # Importar dados para Cassandra
 try:
@@ -109,9 +114,9 @@ try:
                                  posting_domain, sponsored, work_type, currency, compensation_type)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, tuple(row))
-    print("Dados importados para o Cassandra com sucesso.")
+    print(Fore.GREEN + "Dados importados para o Cassandra com sucesso.")
 except Exception as e:
-    print(f"Erro ao importar dados para o Cassandra: {e}")
+    print(Fore.RED + f"Erro ao importar dados para o Cassandra: {e}")
 
 ###################################### FUNÇÕES ##################################################
 
@@ -123,7 +128,7 @@ def postgres_query(query):
     try:
         return postgres_conn.execute(query).fetchall()
     except Exception as e:
-        print(f"Erro ao executar a consulta no PostgreSQL: {e}")
+        print(Fore.RED + f"Erro ao executar a consulta no PostgreSQL: {e}")
         return [], 0
 
 
@@ -132,7 +137,7 @@ def cassandra_query(query):
     try:
         return cassandra_session.execute(SimpleStatement(query)).all()
     except Exception as e:
-        print(f"Erro ao executar a consulta no Cassandra: {e}")
+        print(Fore.RED + f"Erro ao executar a consulta no Cassandra: {e}")
         return [], 0
 
 ###################################### QUERIES ##################################################
@@ -184,9 +189,9 @@ for query in queries:
 
 # Exibir os resultados
 for result in results:
-    print(f"Consulta: {result['description']}")
-    print(f"PostgreSQL: Tempo = {result['psql_time']:.4f}s")
-    print(f"Cassandra: Tempo = {result['cassandra_time']:.4f}s")
+    print(Fore.CYAN + f"Consulta: {result['description']}")
+    print(Fore.GREEN + f"PostgreSQL: Tempo = {result['psql_time']:.4f}s")
+    print(Fore.GREEN + f"Cassandra: Tempo = {result['cassandra_time']:.4f}s")
     print(f"Resultados PostgreSQL: {result['psql_result']}")
     print(f"Resultados Cassandra: {result['cassandra_result']}\n")
 
