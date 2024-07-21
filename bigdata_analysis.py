@@ -1,15 +1,10 @@
 import pandas as pd
 import sqlalchemy
 from cassandra.cluster import Cluster
-from cassandra.query import SimpleStatement
+from cassandra.query import SimpleStatement, BoundStatement, PreparedStatement
 import time
 from colorama import Fore, Style, init
-
-# https://chatgpt.com/c/04611492-c55e-4a62-9c4b-dab35544b753
-# https://www.overleaf.com/project/669834656ef23d0f88fe6c4b
-# https://github.com/LeonardoZanotti/BigData-Project
-# https://www.kaggle.com/datasets/arshkon/linkedin-job-postings
-# https://www.dropbox.com/scl/fo/c3i0wbk636qltrkjqfhz7/AH-g4P2JjSSxbJnVqvWxa-g/ds340_aX2_ProjetoBigData.pdf?rlkey=tvjexe3zoryv98385ppy23fj0&e=2&dl=0
+from numpy import nan
 
 # Inicializar colorama
 init(autoreset=True)
@@ -25,7 +20,7 @@ psql_host = "localhost"
 # Substitua pelo IP real do container
 cassandra_container_ip = "172.20.0.2"
 
-########################################################################################
+###################################### Helper Functions ##################################################
 
 # Função para medir o tempo de execução
 
@@ -37,6 +32,28 @@ def measure_time(func):
         end_time = time.time()
         return result, end_time - start_time
     return wrapper
+
+# Função para converter valores para inserir no Cassandra
+
+
+def safe_convert(value, dtype):
+    """
+    Safely convert value to the specified dtype, handling NaN and empty values by returning None.
+    """
+    if pd.isna(value) or value == '':
+        return None
+    try:
+        if dtype == int:
+            # Convert to float first to handle string numbers
+            return int(float(value))
+        elif dtype == float:
+            return float(value)
+        elif dtype == bool:
+            return bool(int(value))
+        elif dtype == str:
+            return str(value)
+    except ValueError:
+        return None
 
 
 ###################################### POSTGRESQL ##################################################
@@ -63,14 +80,23 @@ cassandra_session = cassandra_cluster.connect()
 
 # Criar keyspace e tabela
 try:
+    cassandra_session.execute(f"DROP KEYSPACE IF EXISTS {keyspace}")
+
+    # Criar keyspace
+    # Correct way to create keyspace with f-string
     cassandra_session.execute(f"""
         CREATE KEYSPACE IF NOT EXISTS {keyspace}
         WITH REPLICATION = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 1 }}
     """)
+
+    # Usar o keyspace
     cassandra_session.set_keyspace(keyspace)
+
+    # Criar tabela
     cassandra_session.execute(f"""
         CREATE TABLE IF NOT EXISTS {table} (
             job_id text PRIMARY KEY,
+            company_name text,
             company_id text,
             title text,
             description text,
@@ -99,21 +125,116 @@ try:
             compensation_type text
         )
     """)
+
     print(Fore.GREEN + "Keyspace e tabela criados com sucesso no Cassandra.")
 except Exception as e:
     print(Fore.RED + f"Erro ao criar keyspace ou tabela no Cassandra: {e}")
 
 # Importar dados para Cassandra
 try:
+    # Prepare the CQL statement
+    insert_statement = """
+        INSERT INTO job_postings (
+            job_id,
+            company_name,
+            company_id,
+            title,
+            description,
+            max_salary,
+            med_salary,
+            min_salary,
+            pay_period,
+            formatted_work_type,
+            location,
+            applies,
+            original_listed_time,
+            remote_allowed,
+            views,
+            job_posting_url,
+            application_url,
+            application_type,
+            expiry,
+            closed_time,
+            formatted_experience_level,
+            skills_desc,
+            listed_time,
+            posting_domain,
+            sponsored,
+            work_type,
+            currency,
+            compensation_type
+        ) VALUES (
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?, 
+            ?
+        )
+    """
+
+    # Prepare the statement
+    prepared_statement = cassandra_session.prepare(insert_statement)
+
+    # Insert data
     for _, row in job_postings.iterrows():
-        cassandra_session.execute(f"""
-            INSERT INTO {table} (job_id, company_id, title, description, max_salary, med_salary, min_salary,
-                                 pay_period, formatted_work_type, location, applies, original_listed_time,
-                                 remote_allowed, views, job_posting_url, application_url, application_type,
-                                 expiry, closed_time, formatted_experience_level, skills_desc, listed_time,
-                                 posting_domain, sponsored, work_type, currency, compensation_type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, tuple(row))
+        # Example usage in the execute call
+        cassandra_session.execute(prepared_statement, [
+            safe_convert(row['job_id'], str),  # job_id
+            safe_convert(row['company_name'], str),  # company_name
+            safe_convert(row['company_id'], str),  # company_id
+            safe_convert(row['title'], str),  # title
+            safe_convert(row['description'], str),  # description
+            safe_convert(row['max_salary'], float),  # max_salary
+            safe_convert(row['med_salary'], float),  # med_salary
+            safe_convert(row['min_salary'], float),  # min_salary
+            safe_convert(row['pay_period'], str),  # pay_period
+            safe_convert(row['formatted_work_type'],
+                         str),  # formatted_work_type
+            safe_convert(row['location'], str),  # location
+            safe_convert(row['applies'], int),  # applies
+            safe_convert(row['original_listed_time'],
+                         str),  # original_listed_time
+            safe_convert(row['remote_allowed'], bool),  # remote_allowed
+            safe_convert(row['views'], int),  # views
+            safe_convert(row['job_posting_url'], str),  # job_posting_url
+            safe_convert(row['application_url'], str),  # application_url
+            safe_convert(row['application_type'], str),  # application_type
+            safe_convert(row['expiry'], str),  # expiry
+            safe_convert(row['closed_time'], str),  # closed_time
+            safe_convert(row['formatted_experience_level'],
+                         str),  # formatted_experience_level
+            safe_convert(row['skills_desc'], str),  # skills_desc
+            safe_convert(row['listed_time'], str),  # listed_time
+            safe_convert(row['posting_domain'], str),  # posting_domain
+            safe_convert(row['sponsored'], bool),  # sponsored
+            safe_convert(row['work_type'], str),  # work_type
+            safe_convert(row['currency'], str),  # currency
+            safe_convert(row['compensation_type'], str)  # compensation_type
+        ])
+
     print(Fore.GREEN + "Dados importados para o Cassandra com sucesso.")
 except Exception as e:
     print(Fore.RED + f"Erro ao importar dados para o Cassandra: {e}")
