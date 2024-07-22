@@ -15,10 +15,23 @@ table = "job_postings"
 psql_usr = "postgres"
 psql_psw = "postgres"
 psql_host = "localhost"
+file = 'datasets/postings.csv'
+n_rows = 10000  # Número de linhas a ser lidas no CSV
 
-# IP do container Cassandra
-# Substitua pelo IP real do container
-cassandra_container_ip = "172.20.0.2"
+try:
+    print(Fore.YELLOW + f"Lendo {n_rows} linhas do arquivo {file}")
+    job_postings = pd.read_csv(file, nrows=n_rows)
+except:
+    print(Fore.RED + "Falha ao ler o arquivo CSV.")
+    exit()
+
+# Configuração do PostgreSQL
+postgres_conn_str = f"postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
+postgresql_engine = sqlalchemy.create_engine(postgres_conn_str)
+
+# Configurações do Cassandra
+cassandra_container_ip = "172.20.0.2"  # Substitua pelo IP real do container
+keyspace = database
 
 ###################################### Helper Functions ##################################################
 
@@ -61,15 +74,7 @@ try:
     # Começar timer para conexão e inserção de dados no PostgreSQL
     psql_insert_start_time = time.time()
 
-    # Conexão com PostgreSQL
-    postgres_conn_str = f"postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
-    postgresql_engine = sqlalchemy.create_engine(postgres_conn_str)
-
     with postgresql_engine.connect() as postgres_conn:
-        # Ler o arquivo CSV
-        # Lendo apenas as primeiras 100 linhas para testes
-        job_postings = pd.read_csv('datasets/postings.csv', nrows=100)
-
         # Importar dados para PostgreSQL
         job_postings.to_sql(table, postgresql_engine,
                             if_exists='replace', index=False)
@@ -86,9 +91,6 @@ except Exception as e:
 try:
     # Começar timer para conexão e criação de tabela no Cassandra
     cassandra_create_start_time = time.time()
-
-    # Configurações do Cassandra
-    keyspace = database
 
     with Cluster([cassandra_container_ip]) as cassandra_cluster:
         with cassandra_cluster.connect() as cassandra_session:
