@@ -15,7 +15,6 @@ table = "job_postings"
 psql_usr = "postgres"
 psql_psw = "postgres"
 psql_host = "localhost"
-results = []
 
 # IP do container Cassandra
 # Substitua pelo IP real do container
@@ -321,6 +320,11 @@ queries = [
     #     "cql": "UPDATE job_postings SET min_salary = 4000"
     # }
     {
+        "description": "Função agregada",
+        "sql": "SELECT COUNT(*) FROM job_postings",
+        "cql": "SELECT COUNT(*) FROM job_postings"
+    },
+    {
         "description": "Leitura simples por chave primária",
         "sql": "SELECT * FROM job_postings WHERE job_id = '2147609816'",
         "cql": "SELECT * FROM job_postings WHERE job_id = '2147609816'"
@@ -342,25 +346,16 @@ queries = [
 # Executar e medir o tempo das consultas no PostgreSQL e no Cassandra
 
 for query in queries:
-    psql_result, psql_exec_time = postgres_query(sqlalchemy.text(query["sql"]))
-    cassandra_result, cassandra_exec_time = cassandra_query(query["cql"])
+    print(Fore.YELLOW + f"Executando: {query['description']}")
+    psql_result, psql_time = postgres_query(sqlalchemy.text(query['sql']))
+    print(Fore.CYAN +
+          f"PostgreSQL: {psql_time:.4f}s | Resultados: {len(psql_result)}")
 
-    results.append({
-        "description": query["description"],
-        "psql_result": psql_result,
-        "psql_time": psql_exec_time,
-        "cassandra_result": cassandra_result,
-        "cassandra_time": cassandra_exec_time
-    })
+    cass_result, cass_time = cassandra_query(query['cql'])
+    print(Fore.MAGENTA +
+          f"Cassandra: {cass_time:.4f}s | Resultados: {len(cass_result)}")
 
-# Exibir os resultados
-for result in results:
-    print(Fore.CYAN + f"\nConsulta: {result['description']}")
-    print(Fore.GREEN + f"PostgreSQL: Tempo = {result['psql_time']:.4f}s")
-    print(Fore.GREEN + f"Cassandra: Tempo = {result['cassandra_time']:.4f}s")
-    if ("Leitura" in result['description']):
-        print(f"Resultados PostgreSQL: {result['psql_result']}\n")
-        print(f"Resultados Cassandra: {result['cassandra_result']}")
+print(Fore.YELLOW + "Comparação finalizada.")
 
 # Fechar conexões
 postgres_conn.close()
