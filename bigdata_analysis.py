@@ -9,12 +9,13 @@ from numpy import nan
 # Inicializar colorama
 init(autoreset=True)
 
-# Configurações de conexão
+# Configurações de conexão e definição de variáveis
 database = "linkedin_job_postings"
 table = "job_postings"
 psql_usr = "postgres"
 psql_psw = "postgres"
 psql_host = "localhost"
+results = []
 
 # IP do container Cassandra
 # Substitua pelo IP real do container
@@ -57,29 +58,43 @@ def safe_convert(value, dtype):
 
 
 ###################################### POSTGRESQL ##################################################
-# Conexão com PostgreSQL
-postgres_conn_str = f"postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
-postgresql_engine = sqlalchemy.create_engine(postgres_conn_str)
-postgres_conn = postgresql_engine.connect()
+try:
+    # Começar timer para conexão e inserção de dados no PostgreSQL
+    psql_insert_start_time = time.time()
 
-# Ler o arquivo CSV
-# Lendo apenas as primeiras 100 linhas para testes
-job_postings = pd.read_csv('datasets/postings.csv', nrows=100)
+    # Conexão com PostgreSQL
+    postgres_conn_str = f"postgresql://{psql_usr}:{psql_psw}@{psql_host}/{database}"
+    postgresql_engine = sqlalchemy.create_engine(postgres_conn_str)
+    postgres_conn = postgresql_engine.connect()
 
-# Importar dados para PostgreSQL
-job_postings.to_sql(table, postgresql_engine, if_exists='replace', index=False)
+    # Ler o arquivo CSV
+    # Lendo apenas as primeiras 100 linhas para testes
+    job_postings = pd.read_csv('datasets/postings.csv', nrows=100)
 
-print(Fore.GREEN + "Dados importados para o PostgreSQL com sucesso.")
+    # Importar dados para PostgreSQL
+    job_postings.to_sql(table, postgresql_engine,
+                        if_exists='replace', index=False)
+
+    # Calcular tempo decorrido
+    psql_insert_time = time.time() - psql_insert_start_time
+
+    print(Fore.GREEN +
+          f"Dados importados para o PostgreSQL com sucesso. Tempo decorrido: {psql_insert_time:.4f}s")
+except Exception as e:
+    print(Fore.RED + f"Erro ao importar dados para o PostgreSQL: {e}")
 
 ###################################### CASSANDRA ##################################################
 
-# Configurações do Cassandra
-keyspace = database
-cassandra_cluster = Cluster([cassandra_container_ip])
-cassandra_session = cassandra_cluster.connect()
-
-# Criar keyspace e tabela
 try:
+    # Começar timer para conexão e criação de tabela no Cassandra
+    cassandra_create_start_time = time.time()
+
+    # Configurações do Cassandra
+    keyspace = database
+    cassandra_cluster = Cluster([cassandra_container_ip])
+    cassandra_session = cassandra_cluster.connect()
+
+    # Criar keyspace e tabela
     cassandra_session.execute(f"DROP KEYSPACE IF EXISTS {keyspace}")
 
     # Criar keyspace
@@ -126,19 +141,20 @@ try:
         )
     """)
 
-    # Create indexes for optimized queries
-    cassandra_session.execute(
-        f"CREATE INDEX IF NOT EXISTS idx_formatted_work_type ON {table} (formatted_work_type)")
-    cassandra_session.execute(
-        f"CREATE INDEX IF NOT EXISTS idx_title ON {table} (title)")
+    # Calcular tempo decorrido desde o inicio
+    cassandra_create_time = time.time() - cassandra_create_start_time
 
-    print(Fore.GREEN + "Keyspace, tabela e índices criados com sucesso no Cassandra.")
+    print(Fore.GREEN +
+          f"Keyspace e tabela criados com sucesso no Cassandra. Tempo decorrido: {cassandra_create_time:.4f}s")
 except Exception as e:
     print(
-        Fore.RED + f"Erro ao criar keyspace, tabela ou índices no Cassandra: {e}")
+        Fore.RED + f"Erro ao criar keyspace ou tabela no Cassandra: {e}")
 
 # Importar dados para Cassandra
 try:
+    # Começar timer para inserção de dados no Cassandra
+    cassandra_insert_start_time = time.time()
+
     # Prepare the CQL statement
     insert_statement = f"""
         INSERT INTO {table} (
@@ -242,7 +258,11 @@ try:
             safe_convert(row['compensation_type'], str)  # compensation_type
         ])
 
-    print(Fore.GREEN + "Dados importados para o Cassandra com sucesso.")
+    # Calcular tempo decorrido desde o inicio
+    cassandra_insert_time = time.time() - cassandra_insert_start_time
+
+    print(Fore.GREEN +
+          f"Dados importados para o Cassandra com sucesso. Tempo decorrido: {cassandra_insert_time:.4f}s")
 except Exception as e:
     print(Fore.RED + f"Erro ao importar dados para o Cassandra: {e}")
 
@@ -277,35 +297,49 @@ def cassandra_query(query):
 
 # Definir queries
 queries = [
+    # {
+    #     "description": "Salário máximo, mínimo e médio por tipo de trabalho",
+    #     "sql": """
+    #         SELECT formatted_work_type, MAX(max_salary) AS max_salary, MIN(min_salary) AS min_salary, AVG(med_salary) AS avg_salary
+    #         FROM job_postings
+    #         GROUP BY formatted_work_type
+    #     """,
+    #     "cql": """
+    #         SELECT formatted_work_type, MAX(max_salary) AS max_salary, MIN(min_salary) AS min_salary, AVG(med_salary) AS avg_salary
+    #         FROM job_postings
+    #         GROUP BY formatted_work_type
+    #     """
+    # },
+    # {
+    #     "description": "Buscas por títulos contendo 'Engineer'",
+    #     "sql": "SELECT * FROM job_postings WHERE title ILIKE '%Engineer%'",
+    #     "cql": "SELECT * FROM job_postings WHERE title LIKE '%Engineer%' ALLOW FILTERING"
+    # },
+    # {
+    #     "description": "Atualizar o salário mínimo de todas as vagas para 4000",
+    #     "sql": "UPDATE job_postings SET min_salary = 4000",
+    #     "cql": "UPDATE job_postings SET min_salary = 4000"
+    # }
     {
-        "description": "Salário máximo, mínimo e médio por tipo de trabalho",
-        "sql": """
-            SELECT formatted_work_type, MAX(max_salary) AS max_salary, MIN(min_salary) AS min_salary, AVG(med_salary) AS avg_salary
-            FROM job_postings
-            GROUP BY formatted_work_type
-        """,
-        "cql": """
-            SELECT formatted_work_type, MAX(max_salary) AS max_salary, MIN(min_salary) AS min_salary, AVG(med_salary) AS avg_salary
-            FROM job_postings
-            GROUP BY formatted_work_type
-        """
+        "description": "Leitura simples por chave primária",
+        "sql": "SELECT * FROM job_postings WHERE job_id = '2147609816'",
+        "cql": "SELECT * FROM job_postings WHERE job_id = '2147609816'"
     },
     {
-        "description": "Buscas por títulos contendo 'Engineer'",
-        "sql": "SELECT * FROM job_postings WHERE title ILIKE '%Engineer%'",
-        "cql": "SELECT * FROM job_postings WHERE title LIKE '%Engineer%' ALLOW FILTERING"
+        "description": "Atualização por chave primária",
+        "sql": "UPDATE job_postings SET title = 'Updated Job' WHERE job_id = '2974397965'",
+        "cql": "UPDATE job_postings SET title = 'Updated Job' WHERE job_id = '2974397965'"
     },
     {
-        "description": "Atualizar o salário mínimo de todas as vagas para 4000",
-        "sql": "UPDATE job_postings SET min_salary = 4000",
-        "cql": "UPDATE job_postings SET min_salary = 4000"
+        "description": "Filtragem por índice secundário",
+        "sql": "SELECT * FROM job_postings WHERE formatted_work_type = 'Full-time'",
+        "cql": "SELECT * FROM job_postings WHERE formatted_work_type = 'Full-time' ALLOW FILTERING"
     }
 ]
 
 ###################################### EXECUÇÃO ##################################################
 
 # Executar e medir o tempo das consultas no PostgreSQL e no Cassandra
-results = []
 
 for query in queries:
     psql_result, psql_exec_time = postgres_query(sqlalchemy.text(query["sql"]))
@@ -321,11 +355,12 @@ for query in queries:
 
 # Exibir os resultados
 for result in results:
-    print(Fore.CYAN + f"Consulta: {result['description']}")
+    print(Fore.CYAN + f"\nConsulta: {result['description']}")
     print(Fore.GREEN + f"PostgreSQL: Tempo = {result['psql_time']:.4f}s")
     print(Fore.GREEN + f"Cassandra: Tempo = {result['cassandra_time']:.4f}s")
-    print(f"Resultados PostgreSQL: {result['psql_result']}")
-    print(f"Resultados Cassandra: {result['cassandra_result']}\n")
+    if ("Leitura" in result['description']):
+        print(f"Resultados PostgreSQL: {result['psql_result']}\n")
+        print(f"Resultados Cassandra: {result['cassandra_result']}")
 
 # Fechar conexões
 postgres_conn.close()
