@@ -19,7 +19,7 @@ file = 'datasets/postings.csv'
 
 try:
     print(Fore.YELLOW + f"Lendo arquivo {file}")
-    job_postings = pd.read_csv(file, nrows=100)
+    job_postings = pd.read_csv(file)
     print(Fore.LIGHTGREEN_EX +
           f"{len(job_postings)} linhas lidas com sucesso!")
 except Exception as e:
