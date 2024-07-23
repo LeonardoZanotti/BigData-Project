@@ -1,0 +1,28 @@
+
+Cassandra doesn't support complex aggregations directly with a GROUP BY clause.
+Denormalization and Pre-aggregation involve storing precomputed aggregates in separate tables.
+Apache Spark can be used to perform complex aggregations and is well-suited for batch processing large datasets.
+Cassandra Limitation: Cassandra doesn’t support searching with wildcards (like %red%) because it’s optimized for fast writes and reads based on exact matches, not for complex searches.
+Elasticsearch Advantage: Elasticsearch is built to handle complex searches, including finding words within text and using patterns. It’s designed to be great at searching large amounts of text data quickly.
+Simple Analogy
+Cassandra: Imagine you have a filing cabinet where you can only look up files by their exact label. If you want to find files related to "red," you’d need to know the exact name or label.
+
+Elasticsearch: Now imagine a smart search engine that can search through all your files for any mention of "red," no matter where it appears in the document or title.
+
+In Summary
+Cassandra is good for quick lookups based on exact matches.
+Elasticsearch is designed for searching and filtering text, like finding titles with "red" in them.
+Elasticsearch makes it easy to perform searches that Cassandra can’t handle as effectively, especially when you need to find text patterns or keywords in large datasets.
+
+
+Pre-aggregated Data: Design your schema to include pre-aggregated data. For example, maintain counters or summary tables that aggregate data as it’s inserted.
+
+Application-Level Aggregation: Retrieve the data from Cassandra and perform the grouping and aggregation in your application code. This approach can be inefficient for large datasets but can be useful for certain types of analysis.
+
+Spark Integration: Use Apache Spark to perform more complex aggregations and transformations. You can use Spark’s Cassandra connector to read data from Cassandra, perform aggregations in Spark, and then write results back to Cassandra or another datastore.
+
+In Cassandra, performing searches with wildcard patterns (like %Engineer% in SQL) is not straightforward due to its design and the nature of its data model. Cassandra is optimized for high-throughput and low-latency queries but has limitations on how queries can be structured, particularly when it comes to full-text search and pattern matching.
+
+If you need to update all rows in a table, the most feasible ways to do so is to use a data migration tool, exporting all data, changing the value and then importing it again or trying to update all in batches of data
+
+Não foi possível realizar search usando operador LIKE, nem atualizar uma coluna inteira e nem usar group by

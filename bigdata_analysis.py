@@ -16,13 +16,14 @@ psql_usr = "postgres"
 psql_psw = "postgres"
 psql_host = "localhost"
 file = 'datasets/postings.csv'
-n_rows = 10000  # Número de linhas a ser lidas no CSV
 
 try:
-    print(Fore.YELLOW + f"Lendo {n_rows} linhas do arquivo {file}")
-    job_postings = pd.read_csv(file, nrows=n_rows)
-except:
-    print(Fore.RED + "Falha ao ler o arquivo CSV.")
+    print(Fore.YELLOW + f"Lendo arquivo {file}")
+    job_postings = pd.read_csv(file, nrows=100)
+    print(Fore.LIGHTGREEN_EX +
+          f"{len(job_postings)} linhas lidas com sucesso!")
+except Exception as e:
+    print(Fore.RED + "Falha ao ler o arquivo CSV: " + str(e))
     exit()
 
 # Configuração do PostgreSQL
@@ -341,6 +342,5 @@ queries = [
 ]
 
 for query in queries:
-    # print(query['query'])
     run_and_print_results(query['description'],
                           query['query'])
